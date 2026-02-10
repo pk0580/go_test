@@ -3,11 +3,9 @@ FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 
-COPY service-go/go.mod ./
-# COPY service-go/go.sum ./
+COPY service-go/ ./
+RUN go mod tidy
 RUN go mod download
-
-COPY service-go/ .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/main.go
 
