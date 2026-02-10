@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/user/go-sender/internal/queue"
@@ -26,6 +27,7 @@ type Worker struct {
 	db          *sql.DB
 	sender      sender.EmailSender
 	taskChan    chan Message
+	processed   uint64
 }
 
 // NewWorker создает новый экземпляр воркера
@@ -48,6 +50,10 @@ func (w *Worker) Start(ctx context.Context, wg *sync.WaitGroup, numWorkers int) 
 		wg.Add(1)
 		go w.workerRoutine(ctx, wg, i)
 	}
+
+	// Запуск мониторинга производительности
+	wg.Add(1)
+	go w.monitor(ctx, wg)
 
 	// Основной цикл: чтение из Redis и отправка в канал задач
 	for {
@@ -95,6 +101,28 @@ func (w *Worker) workerRoutine(ctx context.Context, wg *sync.WaitGroup, workerID
 	log.Printf("Worker routine %d stopped", workerID)
 }
 
+// monitor логирует метрики производительности
+func (w *Worker) monitor(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	var lastProcessed uint64
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			currentProcessed := atomic.LoadUint64(&w.processed)
+			diff := currentProcessed - lastProcessed
+			log.Printf("METRIC: Processed %d messages in last 5s (Total: %d, Avg: %.2f msg/s)",
+				diff, currentProcessed, float64(diff)/5.0)
+			lastProcessed = currentProcessed
+		}
+	}
+}
+
 // processMessage обрабатывает сообщение
 func (w *Worker) processMessage(workerID int, msg Message) {
 	log.Printf("Worker %d: Processing message ID %d to %s", workerID, msg.ID, msg.Recipient)
@@ -117,6 +145,7 @@ func (w *Worker) processMessage(workerID int, msg Message) {
 	}
 
 	if status == "sent" {
+		atomic.AddUint64(&w.processed, 1)
 		fmt.Printf("Message PROCESSED: ID=%d, To=%s\n", msg.ID, msg.Recipient)
 	}
 }

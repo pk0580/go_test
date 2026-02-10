@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"syscall"
 
@@ -36,6 +37,14 @@ func main() {
 	// Инициализация отправителя
 	emailSender := sender.NewSMTPSender()
 
+	// Получение количества воркеров из переменной окружения
+	numWorkers := 5
+	if nwStr := os.Getenv("WORKER_COUNT"); nwStr != "" {
+		if nw, err := strconv.Atoi(nwStr); err == nil && nw > 0 {
+			numWorkers = nw
+		}
+	}
+
 	// Контекст для корректного завершения (Graceful Shutdown)
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
@@ -44,7 +53,6 @@ func main() {
 	msgWorker := worker.NewWorker(redisClient, mysqlDB, emailSender)
 
 	// Запуск диспетчера и воркеров
-	numWorkers := 5
 	wg.Add(1)
 	go msgWorker.Start(ctx, &wg, numWorkers)
 
