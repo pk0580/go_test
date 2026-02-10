@@ -10,6 +10,19 @@ use Illuminate\Support\Facades\Redis;
 class MessageController extends Controller
 {
     /**
+     * Показать список сообщений.
+     */
+    public function index(): JsonResponse
+    {
+        $messages = Message::latest()->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $messages
+        ]);
+    }
+
+    /**
      * Создать сообщение и поместить его в очередь Redis.
      */
     public function store(Request $request): JsonResponse

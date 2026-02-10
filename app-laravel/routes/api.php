@@ -9,3 +9,4 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 Route::post('/messages', [MessageController::class, 'store']);
+Route::get('/messages', [MessageController::class, 'index']);

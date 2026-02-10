@@ -9,6 +9,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/user/go-sender/internal/db"
 	"github.com/user/go-sender/internal/queue"
 	"github.com/user/go-sender/internal/sender"
 	"github.com/user/go-sender/internal/worker"
@@ -24,6 +25,14 @@ func main() {
 	}
 	log.Println("Connected to Redis successfully")
 
+	// Инициализация MySQL
+	mysqlDB, err := db.NewDBConnection()
+	if err != nil {
+		log.Fatalf("Failed to connect to MySQL: %v", err)
+	}
+	defer mysqlDB.Close()
+	log.Println("Connected to MySQL successfully")
+
 	// Инициализация отправителя
 	emailSender := sender.NewSMTPSender()
 
@@ -32,7 +41,7 @@ func main() {
 	var wg sync.WaitGroup
 
 	// Инициализация воркера
-	msgWorker := worker.NewWorker(redisClient, emailSender)
+	msgWorker := worker.NewWorker(redisClient, mysqlDB, emailSender)
 
 	// Запуск диспетчера и воркеров
 	numWorkers := 5

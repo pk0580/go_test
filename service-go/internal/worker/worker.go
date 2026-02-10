@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -22,14 +23,16 @@ type Message struct {
 // Worker структура воркера
 type Worker struct {
 	redisClient *queue.RedisClient
+	db          *sql.DB
 	sender      sender.EmailSender
 	taskChan    chan Message
 }
 
 // NewWorker создает новый экземпляр воркера
-func NewWorker(rc *queue.RedisClient, s sender.EmailSender) *Worker {
+func NewWorker(rc *queue.RedisClient, db *sql.DB, s sender.EmailSender) *Worker {
 	return &Worker{
 		redisClient: rc,
+		db:          db,
 		sender:      s,
 		taskChan:    make(chan Message, 100),
 	}
@@ -98,10 +101,22 @@ func (w *Worker) processMessage(workerID int, msg Message) {
 
 	// Отправка через отправителя (SMTP или Mock)
 	err := w.sender.Send(msg.Recipient, msg.Content)
+	
+	status := "sent"
 	if err != nil {
 		log.Printf("Worker %d: Failed to send message ID %d: %v", workerID, msg.ID, err)
-		return
+		status = "failed"
 	}
 
-	fmt.Printf("Message PROCESSED: ID=%d, To=%s\n", msg.ID, msg.Recipient)
+	// Обновление статуса в БД MySQL
+	_, dbErr := w.db.Exec("UPDATE messages SET status = ?, updated_at = ? WHERE id = ?", status, time.Now(), msg.ID)
+	if dbErr != nil {
+		log.Printf("Worker %d: Failed to update status in DB for ID %d: %v", workerID, msg.ID, dbErr)
+	} else {
+		log.Printf("Worker %d: Updated status to '%s' for message ID %d", workerID, status, msg.ID)
+	}
+
+	if status == "sent" {
+		fmt.Printf("Message PROCESSED: ID=%d, To=%s\n", msg.ID, msg.Recipient)
+	}
 }
