@@ -16,7 +16,7 @@ services:
     volumes:
       - ./app-laravel:/var/www/html
     environment:
-      DB_CONNECTION: pgsql
+      DB_CONNECTION: mysql
       DB_HOST: db
       REDIS_HOST: redis
 
@@ -29,16 +29,29 @@ services:
       - db
     environment:
       REDIS_ADDR: redis:6379
-      DB_DSN: postgres://user:password@db:5432/go_test?sslmode=disable
+      DB_DSN: user:password@tcp(db:3306)/go_test?charset=utf8mb4&parseTime=True&loc=Local
 
   db:
-    image: postgres:15-alpine
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: go_test
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: go_test
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
     ports:
-      - "5432:5432"
+      - "3306:3306"
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    environment:
+      PMA_HOST: db
+      PMA_USER: root
+      PMA_PASSWORD: root
+    ports:
+      - "8081:80"
+    depends_on:
+      - db
 
   redis:
     image: redis:alpine

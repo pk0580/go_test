@@ -1,15 +1,19 @@
 FROM php:8.2-fpm-alpine
 
 RUN apk add --no-cache \
-    postgresql-dev \
+    mysql-client \
     libzip-dev \
     zip \
     unzip \
-    git
+    git \
+    $PHPIZE_DEPS \
+    pcre-dev
 
-RUN docker-php-ext-install pdo_pgsql zip
+RUN docker-php-ext-install pdo_mysql zip
 
 RUN pecl install redis && docker-php-ext-enable redis
+
+RUN apk del $PHPIZE_DEPS pcre-dev
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
