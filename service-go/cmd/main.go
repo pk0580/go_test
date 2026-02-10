@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/user/go-sender/internal/queue"
+	"github.com/user/go-sender/internal/sender"
 	"github.com/user/go-sender/internal/worker"
 )
 
@@ -23,19 +24,20 @@ func main() {
 	}
 	log.Println("Connected to Redis successfully")
 
+	// Инициализация отправителя
+	emailSender := sender.NewSMTPSender()
+
 	// Контекст для корректного завершения (Graceful Shutdown)
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 
 	// Инициализация воркера
-	msgWorker := worker.NewWorker(redisClient)
+	msgWorker := worker.NewWorker(redisClient, emailSender)
 
-	// Запуск нескольких горутин-воркеров (например, 5)
+	// Запуск диспетчера и воркеров
 	numWorkers := 5
-	for i := 1; i <= numWorkers; i++ {
-		wg.Add(1)
-		go msgWorker.Start(ctx, &wg, i)
-	}
+	wg.Add(1)
+	go msgWorker.Start(ctx, &wg, numWorkers)
 
 	// Ожидание сигнала для остановки
 	stop := make(chan os.Signal, 1)
