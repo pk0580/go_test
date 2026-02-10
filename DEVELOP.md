@@ -20,7 +20,7 @@ Laravel отлично подходит для бизнес-логики, но P
     *   Асинхронная отправка сообщений с использованием Goroutines.
     *   Контроль лимитов (Rate limiting).
 3.  **Инфраструктура**:
-    *   **PostgreSQL**: Основная БД для Laravel.
+    *   **MySQL**: Основная БД для Laravel.
     *   **Redis**: Очередь сообщений (Broker) и кэш.
     *   **Mailpit/Smtp4dev**: Для тестирования отправки почты.
     *   **Nginx**: Проксирование запросов.
@@ -45,7 +45,7 @@ Laravel отлично подходит для бизнес-логики, но P
 ## Шаги разработки
 
 ### Шаг 1: Развертывание инфраструктуры (Docker)
-1.  Настройка `docker-compose.yml` с сервисами: `app` (PHP-FPM), `web` (Nginx), `db` (Postgres), `redis`, `go-sender`.
+1.  Настройка `docker-compose.yml` с сервисами: `app` (PHP-FPM), `web` (Nginx), `db` (MySQL), `redis`, `go-sender`.
 2.  Создание Dockerfile для PHP (с расширениями pdo, redis).
 3.  Создание Dockerfile для Go (multi-stage build).
 
