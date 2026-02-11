@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/rs/zerolog/log"
+
+	"github.com/user/go-sender/internal/metrics"
 	"github.com/user/go-sender/internal/queue"
 	"github.com/user/go-sender/internal/sender"
 )
@@ -43,7 +45,8 @@ func NewWorker(rc *queue.RedisClient, db *sql.DB, s sender.EmailSender) *Worker 
 // Start запускает процесс обработки очереди
 func (w *Worker) Start(ctx context.Context, wg *sync.WaitGroup, numWorkers int) {
 	defer wg.Done()
-	log.Printf("Starting %d worker routines...", numWorkers)
+	log.Info().Int("num_workers", numWorkers).Msg("Starting worker routines...")
+	metrics.ActiveWorkers.Set(float64(numWorkers))
 
 	// Запуск пула воркеров, которые слушают канал задач
 	for i := 1; i <= numWorkers; i++ {
@@ -59,7 +62,7 @@ func (w *Worker) Start(ctx context.Context, wg *sync.WaitGroup, numWorkers int) 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("Dispatcher stopping...")
+			log.Info().Msg("Dispatcher stopping...")
 			close(w.taskChan)
 			return
 		default:
@@ -67,15 +70,15 @@ func (w *Worker) Start(ctx context.Context, wg *sync.WaitGroup, numWorkers int) 
 			result, err := w.redisClient.Client.BLPop(ctx, 5 * time.Second, "laravel-database-messages_queue").Result()
 			if err != nil {
 				if err.Error() != "redis: nil" && ctx.Err() == nil {
-					log.Printf("Dispatcher error: %v", err)
+					log.Error().Err(err).Msg("Dispatcher error")
 				}
 				continue
 			}
 
-            // result[0] - имя очереди, result[1] - данные
+			// result[0] - имя очереди, result[1] - данные
 			var msg Message
 			if err := json.Unmarshal([]byte(result[1]), &msg); err != nil {
-				log.Printf("Dispatcher: error parsing message: %v", err)
+				log.Error().Err(err).Msg("Dispatcher: error parsing message")
 				continue
 			}
 
@@ -93,12 +96,12 @@ func (w *Worker) Start(ctx context.Context, wg *sync.WaitGroup, numWorkers int) 
 // workerRoutine отдельная горутина-воркер
 func (w *Worker) workerRoutine(ctx context.Context, wg *sync.WaitGroup, workerID int) {
 	defer wg.Done()
-	log.Printf("Worker routine %d started", workerID)
+	log.Info().Int("worker_id", workerID).Msg("Worker routine started")
 
 	for msg := range w.taskChan {
 		w.processMessage(workerID, msg)
 	}
-	log.Printf("Worker routine %d stopped", workerID)
+	log.Info().Int("worker_id", workerID).Msg("Worker routine stopped")
 }
 
 // monitor логирует метрики производительности
@@ -125,24 +128,45 @@ func (w *Worker) monitor(ctx context.Context, wg *sync.WaitGroup) {
 
 // processMessage обрабатывает сообщение
 func (w *Worker) processMessage(workerID int, msg Message) {
-	log.Printf("Worker %d: Processing message ID %d to %s", workerID, msg.ID, msg.Recipient)
+	start := time.Now()
+	log.Info().
+		Int("worker_id", workerID).
+		Int64("message_id", msg.ID).
+		Str("recipient", msg.Recipient).
+		Msg("Processing message")
 
 	// Отправка через отправителя (SMTP или Mock)
 	err := w.sender.Send(msg.Recipient, msg.Content)
-	
+
 	status := "sent"
 	if err != nil {
-		log.Printf("Worker %d: Failed to send message ID %d: %v", workerID, msg.ID, err)
+		log.Error().
+			Err(err).
+			Int("worker_id", workerID).
+			Int64("message_id", msg.ID).
+			Msg("Failed to send message")
 		status = "failed"
 	}
 
 	// Обновление статуса в БД MySQL
 	_, dbErr := w.db.Exec("UPDATE messages SET status = ?, updated_at = ? WHERE id = ?", status, time.Now(), msg.ID)
 	if dbErr != nil {
-		log.Printf("Worker %d: Failed to update status in DB for ID %d: %v", workerID, msg.ID, dbErr)
+		log.Error().
+			Err(dbErr).
+			Int("worker_id", workerID).
+			Int64("message_id", msg.ID).
+			Msg("Failed to update status in DB")
 	} else {
-		log.Printf("Worker %d: Updated status to '%s' for message ID %d", workerID, status, msg.ID)
+		log.Info().
+			Int("worker_id", workerID).
+			Int64("message_id", msg.ID).
+			Str("status", status).
+			Msg("Updated status in DB")
 	}
+
+	duration := time.Since(start).Seconds()
+	metrics.MessagesProcessingDuration.Observe(duration)
+	metrics.MessagesProcessed.WithLabelValues(status).Inc()
 
 	if status == "sent" {
 		atomic.AddUint64(&w.processed, 1)
