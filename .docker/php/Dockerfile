@@ -7,11 +7,13 @@ RUN apk add --no-cache \
     unzip \
     git \
     $PHPIZE_DEPS \
-    pcre-dev
+    pcre-dev \
+    protobuf-dev \
+    grpc-dev
 
 RUN docker-php-ext-install pdo_mysql zip
 
-RUN pecl install redis && docker-php-ext-enable redis
+RUN pecl install redis grpc && docker-php-ext-enable redis grpc
 
 RUN apk del $PHPIZE_DEPS pcre-dev
 

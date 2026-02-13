@@ -14,6 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/user/go-sender/internal/db"
+	"github.com/user/go-sender/internal/grpcserver"
 	"github.com/user/go-sender/internal/queue"
 	"github.com/user/go-sender/internal/sender"
 	"github.com/user/go-sender/internal/worker"
@@ -71,6 +72,11 @@ func main() {
 	// Запуск диспетчера и воркеров
 	wg.Add(1)
 	go msgWorker.Start(ctx, &wg, numWorkers)
+
+	// Запуск gRPC сервера
+	grpcSrv := grpcserver.NewServer(emailSender)
+	wg.Add(1)
+	go grpcSrv.Start(ctx, &wg, 50051)
 
 	// Ожидание сигнала для остановки
 	stop := make(chan os.Signal, 1)

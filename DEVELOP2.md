@@ -17,34 +17,37 @@
     *   Определены методы: `SendEmail(EmailRequest) returns (EmailResponse)` и `GetWorkerStatus(StatusRequest) returns (StatusResponse)`.
     *   Указаны опции для генерации кода (`go_package`, `php_namespace`).
 
-## Шаг 2: Генерация кода
+## Шаг 2: Генерация кода [DONE]
 
-### Для Go (серверная часть)
+### Для Go (серверная часть) [DONE]
 1.  Установить `protoc` и плагины `protoc-gen-go`, `protoc-gen-go-grpc`.
 2.  Добавить скрипт или команду в Makefile/Taskfile для генерации:
     ```bash
     protoc --go_out=./service-go --go-grpc_out=./service-go proto/sender.proto
     ```
+    *   **Результат**: Файлы сгенерированы в `service-go/internal/grpcserver/pb/`.
 
-### Для PHP/Laravel (клиентская часть)
+### Для PHP/Laravel (клиентская часть) [DONE]
 1.  Установить расширение `grpc` для PHP в Docker-контейнере.
 2.  Установить `protoc-gen-php` и плагин gRPC для PHP.
 3.  Сгенерировать классы:
     ```bash
     protoc --php_out=./app-laravel/app/Grpc --grpc_out=./app-laravel/app/Grpc --plugin=protoc-gen-grpc=/usr/bin/grpc_php_plugin proto/sender.proto
     ```
+    *   **Результат**: Базовые классы (Messages) сгенерированы в `app-laravel/app/Grpc/Sender/`. Клиент `SenderServiceClient.php` реализован вручную из-за отсутствия плагина в среде генерации.
 4.  Настроить автозагрузку сгенерированных классов в `composer.json`.
+    *   **Результат**: Зависимости `grpc/grpc` и `google/protobuf` добавлены в `composer.json`.
 
-## Шаг 3: Реализация gRPC сервера на Go
+## Шаг 3: Реализация gRPC сервера на Go ✓
 
-1.  **Создание сервера**: В `service-go/internal/grpcserver` реализовать интерфейс, сгенерированный protoc.
-2.  **Интеграция с логикой**: Подключить существующий `sender.Sender` для выполнения реальных действий по отправке.
-3.  **Запуск**: В `cmd/main.go` добавить запуск gRPC сервера на отдельном порту (например, `:50051`) в отдельной горутине.
-4.  **Graceful Shutdown**: Обеспечить корректную остановку gRPC сервера при завершении работы сервиса.
+1.  **Создание сервера**: В `service-go/internal/grpcserver` реализовать интерфейс, сгенерированный protoc. ✓
+2.  **Интеграция с логикой**: Подключить существующий `sender.Sender` для выполнения реальных действий по отправке. ✓
+3.  **Запуск**: В `cmd/main.go` добавить запуск gRPC сервера на отдельном порту (например, `:50051`) в отдельной горутине. ✓
+4.  **Graceful Shutdown**: Обеспечить корректную остановку gRPC сервера при завершении работы сервиса. ✓
 
-## Шаг 4: Реализация gRPC клиента в Laravel
+## Шаг 4: Реализация gRPC клиента в Laravel *
 
-1.  **Установка зависимостей**: Добавить пакеты `grpc/grpc` и `google/protobuf` через Composer.
+1.  **Установка зависимостей**: Добавить пакеты `grpc/grpc` и `google/protobuf` через Composer. ✓
 2.  **Создание клиента**: Реализовать Service Provider или отдельный класс-обертку для gRPC клиента в `app/Services/GrpcClientService.php`.
 3.  **Конфигурация**: Добавить `GRPC_GO_SERVICE_ADDR=go-sender:50051` в `.env`.
 4.  **Использование**: Создать контроллер или команду для тестирования синхронной отправки.

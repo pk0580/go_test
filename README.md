@@ -66,6 +66,11 @@
    docker-compose exec app php artisan migrate
    ```
 
+4. Команда для входа в контейнер приложения:
+   ```bash
+   docker-compose exec app sh
+   ```
+
 ### Доступ к сервисам
 *   **API (Laravel)**: [http://localhost:8080](http://localhost:8080)
 *   **Prometheus**: [http://localhost:9090](http://localhost:9090)

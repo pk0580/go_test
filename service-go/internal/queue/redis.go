@@ -29,7 +29,7 @@ func NewRedisClient() (*RedisClient, error) {
     defer cancel()
 
     if err := client.Ping(ctx).Err(); err != nil {
-        return nil, fmt.Errorf("redis unavailable: %w", err)
+        return nil, fmt.Errorf("Redis недоступен: %w", err)
     }
 
 	return &RedisClient{Client: client}, nil
