@@ -19,5 +19,11 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
+# Исправляем права при сборке (хотя при монтировании томов они могут перекрыться)
+# Но лучше иметь это в Dockerfile для продакшена
+RUN mkdir -p storage/framework/views storage/framework/cache storage/framework/sessions bootstrap/cache && \
+    chown -R www-data:www-data storage bootstrap/cache && \
+    chmod -R 775 storage bootstrap/cache
+
 EXPOSE 9000
 CMD ["php-fpm"]

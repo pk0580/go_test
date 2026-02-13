@@ -2,13 +2,16 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
 	"sync"
 	"syscall"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/user/go-sender/internal/db"
 	"github.com/user/go-sender/internal/queue"
@@ -17,22 +20,35 @@ import (
 )
 
 func main() {
-	fmt.Println("Starting Go Message Sender Service...")
+	// Настройка zerolog
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	log.Logger = log.Output(os.Stdout)
+
+	log.Info().Msg("Starting Go Message Sender Service...")
+
+	// Запуск HTTP сервера для метрик Prometheus
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		log.Info().Msg("Metrics server starting on :8080")
+		if err := http.ListenAndServe(":8080", nil); err != nil {
+			log.Fatal().Err(err).Msg("Failed to start metrics server")
+		}
+	}()
 
 	// Инициализация Redis
 	redisClient, err := queue.NewRedisClient()
 	if err != nil {
-		log.Fatalf("Failed to connect to Redis: %v", err)
+		log.Fatal().Err(err).Msg("Failed to connect to Redis")
 	}
-	log.Println("Connected to Redis successfully")
+	log.Info().Msg("Connected to Redis successfully")
 
 	// Инициализация MySQL
 	mysqlDB, err := db.NewDBConnection()
 	if err != nil {
-		log.Fatalf("Failed to connect to MySQL: %v", err)
+		log.Fatal().Err(err).Msg("Failed to connect to MySQL")
 	}
 	defer mysqlDB.Close()
-	log.Println("Connected to MySQL successfully")
+	log.Info().Msg("Connected to MySQL successfully")
 
 	// Инициализация отправителя
 	emailSender := sender.NewSMTPSender()
@@ -60,12 +76,12 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
-	log.Printf("Service is running with %d workers. Press CTRL+C to stop.", numWorkers)
+	log.Info().Int("workers", numWorkers).Msg("Service is running. Press CTRL+C to stop.")
 	<-stop
 
-	log.Println("Shutting down service...")
+	log.Info().Msg("Shutting down service...")
 	cancel()   // Сигнализируем воркерам о необходимости остановиться
 	wg.Wait() // Ждем завершения всех воркеров
 
-	log.Println("Service stopped.")
+	log.Info().Msg("Service stopped.")
 }
