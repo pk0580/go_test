@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package sender;
+
+// Опции для Go
+option go_package = "github.com/user/go-sender/internal/grpcserver/pb";
+
+// Опции для PHP
+option php_namespace = "App\\Grpc\\Sender";
+option php_metadata_namespace = "App\\Grpc\\Sender\\GPBMetadata";
+
+// Сервис для работы с отправкой сообщений и мониторинга воркера
+service SenderService {
+  // Синхронная отправка Email
+  rpc SendEmail (EmailRequest) returns (EmailResponse);
+
+  // Получение текущего статуса воркера
+  rpc GetWorkerStatus (StatusRequest) returns (StatusResponse);
+}
+
+// Запрос на отправку Email
+message EmailRequest {
+  string to = 1;
+  string subject = 2;
+  string body = 3;
+}
+
+// Ответ на отправку Email
+message EmailResponse {
+  bool success = 1;
+  string message_id = 2;
+  string error = 3;
+}
+
+// Запрос статуса (может быть пустым, но хорошая практика иметь сообщение)
+message StatusRequest {}
+
+// Ответ со статусом воркера
+message StatusResponse {
+  int32 active_workers = 1;
+  int64 messages_processed = 2;
+  string status = 3;
+}

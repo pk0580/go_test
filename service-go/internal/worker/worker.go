@@ -120,7 +120,7 @@ func (w *Worker) monitor(ctx context.Context, wg *sync.WaitGroup) {
 			currentProcessed := atomic.LoadUint64(&w.processed)
 			diff := currentProcessed - lastProcessed
 			log.Printf("METRIC: Processed %d messages in last 5s (Total: %d, Avg: %.2f msg/s)",
-				diff, currentProcessed, float64(diff)/5.0)
+				diff, currentProcessed, float64(diff) / 5.0)
 			lastProcessed = currentProcessed
 		}
 	}
