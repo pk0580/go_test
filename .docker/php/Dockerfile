@@ -1,40 +1,33 @@
-FROM php:8.4-fpm-alpine
+FROM php:8.4-fpm
 
-# Устанавливаем docker-php-extension-installer
+# Установщик расширений
 COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
 
-RUN apk add --no-cache \
-    mysql-client \
-    libzip-dev \
+# Системные зависимости + базовые PHP extensions
+RUN apt-get update && apt-get install -y \
+    mariadb-client \
     zip \
     unzip \
     git \
-    $PHPIZE_DEPS \
-    pcre-dev \
-    protobuf-dev \
-    grpc-dev \
-    autoconf \
-    g++ \
-    make \
-    zlib-dev \
-    linux-headers
+    libzip-dev \
+ && docker-php-ext-install pdo_mysql zip \
+ && rm -rf /var/lib/apt/lists/*
 
-RUN docker-php-ext-install pdo_mysql zip
-
-# Используем установщик для gRPC и Redis (это быстрее и надежнее)
+# Redis + gRPC (сборка из исходников)
 RUN install-php-extensions redis grpc
 
-RUN apk del $PHPIZE_DEPS pcre-dev
-
+# Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
-# Исправляем права при сборке (хотя при монтировании томов они могут перекрыться)
-# Но лучше иметь это в Dockerfile для продакшена
-RUN mkdir -p storage/framework/views storage/framework/cache storage/framework/sessions bootstrap/cache && \
-    chown -R www-data:www-data storage bootstrap/cache && \
-    chmod -R 775 storage bootstrap/cache
+# Laravel permissions
+RUN mkdir -p storage/framework/views \
+             storage/framework/cache \
+             storage/framework/sessions \
+             bootstrap/cache \
+ && chown -R www-data:www-data storage bootstrap/cache \
+ && chmod -R 775 storage bootstrap/cache
 
 EXPOSE 9000
 CMD ["php-fpm"]
