@@ -27,28 +27,33 @@ class TestGrpcCommand extends Command
     public function handle(GrpcClientService $grpcService): int
     {
         $this->info('Проверка статуса воркера через gRPC...');
-        $status = $grpcService->getWorkerStatus();
 
-        if ($status['success']) {
-            $this->info("Статус: {$status['status']}");
-            $this->info("Обработано сообщений: {$status['messages_processed']}");
-        } else {
-            $this->error("Ошибка: {$status['error']}");
+        try {
+            $response = $grpcService->getWorkerStatus();
+            $this->info("Статус: {$response->getStatus()}");
+            $this->info("Обработано сообщений: {$response->getMessagesProcessed()}");
+            $this->info("Активных воркеров: {$response->getActiveWorkers()}");
+        } catch (\Exception $e) {
+            $this->error("Ошибка при получении статуса: " . $e->getMessage());
         }
 
         $email = $this->argument('email');
         $this->info("Отправка тестового письма на {$email}...");
 
-        $result = $grpcService->sendEmail(
-            $email,
-            'Тест gRPC Laravel 12',
-            'Это сообщение отправлено напрямую через gRPC из Laravel в Go.'
-        );
+        try {
+            $response = $grpcService->sendEmail(
+                $email,
+                'Тест gRPC Laravel 12',
+                'Это сообщение отправлено напрямую через gRPC из Laravel в Go.'
+            );
 
-        if ($result['success']) {
-            $this->info("Письмо успешно отправлено! ID: {$result['message_id']}");
-        } else {
-            $this->error("Ошибка при отправке: {$result['error']}");
+            if ($response->getSuccess()) {
+                $this->info("Письмо успешно отправлено! ID: {$response->getMessageId()}");
+            } else {
+                $this->error("Сервер вернул ошибку: {$response->getError()}");
+            }
+        } catch (\Exception $e) {
+            $this->error("Ошибка при отправке: " . $e->getMessage());
         }
 
         return 0;

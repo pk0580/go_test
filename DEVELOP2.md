@@ -46,12 +46,12 @@
 4.  **Graceful Shutdown**: Обеспечить корректную остановку gRPC сервера при завершении работы сервиса. ✓
 5.  **Конфигурация инфраструктуры**: Добавлен `EXPOSE 50051` в Dockerfile и проброс портов в `docker-compose.yml`. ✓
 
-## Шаг 4: Реализация gRPC клиента в Laravel ✓
+## Шаг 4: Реализация gRPC клиента в Laravel [DONE]
 
-1.  **Установка зависимостей**: Добавить пакеты `grpc/grpc` и `google/protobuf` через Composer. ✓
-2.  **Создание клиента**: Реализовать Service Provider или отдельный класс-обертку для gRPC клиента в `app/Services/GrpcClientService.php`. ✓
-3.  **Конфигурация**: Добавить `GRPC_GO_SERVICE_ADDR=go-sender:50051` в `.env`. ✓
-4.  **Использование**: Создать контроллер или команду для тестирования синхронной отправки. ✓
+1.  **Установка зависимостей**: Пакеты `grpc/grpc` и `google/protobuf` добавлены в `composer.json`. ✓
+2.  **Создание клиента**: Реализована обертка `app/Services/GrpcClientService.php` с использованием Laravel 12 и типизации PHP 8.4. ✓
+3.  **Конфигурация**: Настройка адреса добавлена в `config/services.php` и `.env`. ✓
+4.  **Использование**: Создана консольная команда `app/Console/Commands/TestGrpcCommand.php` (`test:grpc`) для верификации. ✓
 
 ## Шаг 5: Обновление Docker-инфраструктуры
 

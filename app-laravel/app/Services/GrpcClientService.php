@@ -2,73 +2,94 @@
 
 namespace App\Services;
 
-use App\Grpc\SenderServiceClient;
 use App\Grpc\Sender\EmailRequest;
+use App\Grpc\Sender\EmailResponse;
 use App\Grpc\Sender\StatusRequest;
+use App\Grpc\Sender\StatusResponse;
+use App\Grpc\SenderServiceClient;
+use Grpc\ChannelCredentials;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
+/**
+ * Сервис для взаимодействия с Go-сервисом через gRPC.
+ * Реализован с использованием возможностей PHP 8.4 и Laravel 12.
+ */
 class GrpcClientService
 {
     private SenderServiceClient $client;
 
     public function __construct()
     {
-        $address = env('GRPC_GO_SERVICE_ADDR', 'go-sender:50051');
+        $address = Config::get('services.grpc.go_sender.address');
 
-        // В Laravel 12 можно использовать новые возможности типизации и context,
-        // но базовое подключение gRPC остается стандартным.
+        // Создаем клиент gRPC с использованием небезопасных учетных данных для локальной разработки.
+        // Проверяем наличие класса, так как расширение может быть не загружено
+        if (!class_exists(ChannelCredentials::class)) {
+            Log::warning('gRPC extension is not loaded. GrpcClientService might not work.');
+        }
+
         $this->client = new SenderServiceClient($address, [
-            'credentials' => \Grpc\ChannelCredentials::createInsecure(),
+            'credentials' => class_exists(ChannelCredentials::class)
+                ? ChannelCredentials::createInsecure()
+                : null,
         ]);
     }
 
     /**
-     * Отправляет email через gRPC сервис на Go
+     * Синхронная отправка email сообщения через Go-сервис.
+     *
+     * @param string $to Получатель
+     * @param string $subject Тема письма
+     * @param string $body Текст письма
+     * @return EmailResponse
+     * @throws RuntimeException
      */
-    public function sendEmail(string $to, string $subject, string $body): array
+    public function sendEmail(string $to, string $subject, string $body): EmailResponse
     {
         $request = new EmailRequest();
         $request->setTo($to);
         $request->setSubject($subject);
         $request->setBody($body);
 
-        [$response, $status] = $this->client->SendEmail($request)->wait();
+        /** @var array{0: ?EmailResponse, 1: \stdClass} $call */
+        $call = $this->client->SendEmail($request)->wait();
+        [$response, $status] = $call;
 
-        if ($status->code !== \Grpc\STATUS_OK) {
-            Log::error('gRPC Error: ' . $status->details, ['code' => $status->code]);
-            return [
-                'success' => false,
-                'error' => "gRPC error: {$status->details} (code: {$status->code})",
-            ];
+        if ($status->code !== 0) { // 0 - это \Grpc\STATUS_OK
+            Log::error('gRPC SendEmail failed', [
+                'code' => $status->code,
+                'details' => $status->details,
+            ]);
+            throw new RuntimeException("gRPC error: {$status->details}", $status->code);
         }
 
-        return [
-            'success' => $response->getSuccess(),
-            'message_id' => $response->getMessageId(),
-            'error' => $response->getError(),
-        ];
+        return $response;
     }
 
     /**
-     * Получает статус воркера из Go сервиса
+     * Получение текущего статуса воркера из Go-сервиса.
+     *
+     * @return StatusResponse
+     * @throws RuntimeException
      */
-    public function getWorkerStatus(): array
+    public function getWorkerStatus(): StatusResponse
     {
         $request = new StatusRequest();
 
-        [$response, $status] = $this->client->GetWorkerStatus($request)->wait();
+        /** @var array{0: ?StatusResponse, 1: \stdClass} $call */
+        $call = $this->client->GetWorkerStatus($request)->wait();
+        [$response, $status] = $call;
 
-        if ($status->code !== \Grpc\STATUS_OK) {
-            return [
-                'success' => false,
-                'error' => "gRPC error: {$status->details}",
-            ];
+        if ($status->code !== 0) { // 0 - это \Grpc\STATUS_OK
+            Log::error('gRPC GetWorkerStatus failed', [
+                'code' => $status->code,
+                'details' => $status->details,
+            ]);
+            throw new RuntimeException("gRPC error: {$status->details}", $status->code);
         }
 
-        return [
-            'success' => true,
-            'status' => $response->getStatus(),
-            'messages_processed' => $response->getMessagesProcessed(),
-        ];
+        return $response;
     }
 }
