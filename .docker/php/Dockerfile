@@ -1,4 +1,7 @@
-FROM php:8.2-fpm-alpine
+FROM php:8.4-fpm-alpine
+
+# Устанавливаем docker-php-extension-installer
+COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
 
 RUN apk add --no-cache \
     mysql-client \
@@ -9,11 +12,17 @@ RUN apk add --no-cache \
     $PHPIZE_DEPS \
     pcre-dev \
     protobuf-dev \
-    grpc-dev
+    grpc-dev \
+    autoconf \
+    g++ \
+    make \
+    zlib-dev \
+    linux-headers
 
 RUN docker-php-ext-install pdo_mysql zip
 
-RUN pecl install redis grpc && docker-php-ext-enable redis grpc
+# Используем установщик для gRPC и Redis (это быстрее и надежнее)
+RUN install-php-extensions redis grpc
 
 RUN apk del $PHPIZE_DEPS pcre-dev
 

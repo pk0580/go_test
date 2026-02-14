@@ -31,6 +31,8 @@ services:
       REDIS_ADDR: redis:6379
       DB_DSN: user:password@tcp(db:3306)/go_test?charset=utf8mb4&parseTime=True&loc=Local
       WORKER_COUNT: 10
+    ports:
+      - "50051:50051"
 
   db:
     image: mysql:8.0

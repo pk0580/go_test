@@ -5,47 +5,61 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 
 	"github.com/user/go-sender/internal/grpcserver/pb"
+	"github.com/user/go-sender/internal/metrics"
 	"github.com/user/go-sender/internal/sender"
+	"github.com/user/go-sender/internal/worker"
 )
 
 // Server реализует gRPC сервис SenderService
 type Server struct {
 	pb.UnimplementedSenderServiceServer
 	emailSender sender.EmailSender
-	processed   uint64 // Количество обработанных сообщений через gRPC
+	worker      *worker.Worker
 }
 
 // NewServer создает новый экземпляр gRPC сервера
-func NewServer(s sender.EmailSender) *Server {
+func NewServer(s sender.EmailSender, w *worker.Worker) *Server {
 	return &Server{
 		emailSender: s,
+		worker:      w,
 	}
 }
 
 // SendEmail обрабатывает запрос на отправку письма
 func (s *Server) SendEmail(ctx context.Context, req *pb.EmailRequest) (*pb.EmailResponse, error) {
+	start := time.Now()
 	log.Info().
 		Str("recipient", req.GetTo()).
 		Str("subject", req.GetSubject()).
 		Msg("gRPC: Received SendEmail request")
 
 	err := s.emailSender.Send(req.GetTo(), req.GetBody())
+	
+	status := "sent"
 	if err != nil {
+		status = "failed"
 		log.Error().Err(err).Msg("gRPC: Ошибка при отправке email")
+		
+		duration := time.Since(start).Seconds()
+		metrics.MessagesProcessingDuration.Observe(duration)
+		metrics.MessagesProcessed.WithLabelValues("grpc_" + status).Inc()
+
 		return &pb.EmailResponse{
 			Success: false,
 			Error:   fmt.Sprintf("Ошибка при отправке email: %v", err),
 		}, nil
 	}
 
-	atomic.AddUint64(&s.processed, 1)
+	duration := time.Since(start).Seconds()
+	metrics.MessagesProcessingDuration.Observe(duration)
+	metrics.MessagesProcessed.WithLabelValues("grpc_" + status).Inc()
+	
 	log.Info().Msg("gRPC: Email успешно отправлен")
 
 	return &pb.EmailResponse{
@@ -56,7 +70,7 @@ func (s *Server) SendEmail(ctx context.Context, req *pb.EmailRequest) (*pb.Email
 
 // GetWorkerStatus возвращает статус воркера
 func (s *Server) GetWorkerStatus(ctx context.Context, req *pb.StatusRequest) (*pb.StatusResponse, error) {
-	processed := atomic.LoadUint64(&s.processed)
+	processed := s.worker.GetProcessedCount()
 	return &pb.StatusResponse{
 		Status:            "running",
 		MessagesProcessed: int64(processed),

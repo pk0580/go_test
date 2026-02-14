@@ -74,7 +74,7 @@ func main() {
 	go msgWorker.Start(ctx, &wg, numWorkers)
 
 	// Запуск gRPC сервера
-	grpcSrv := grpcserver.NewServer(emailSender)
+	grpcSrv := grpcserver.NewServer(emailSender, msgWorker)
 	wg.Add(1)
 	go grpcSrv.Start(ctx, &wg, 50051)
 

@@ -126,6 +126,11 @@ func (w *Worker) monitor(ctx context.Context, wg *sync.WaitGroup) {
 	}
 }
 
+// GetProcessedCount возвращает количество обработанных сообщений
+func (w *Worker) GetProcessedCount() uint64 {
+	return atomic.LoadUint64(&w.processed)
+}
+
 // processMessage обрабатывает сообщение
 func (w *Worker) processMessage(workerID int, msg Message) {
 	start := time.Now()
