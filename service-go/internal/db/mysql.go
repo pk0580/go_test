@@ -19,7 +19,7 @@ func NewDBConnection() (*sql.DB, error) {
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("error opening database: %w", err)
+		return nil, fmt.Errorf("ошибка при открытии базы данных: %w", err)
 	}
 
 	// Настройка пула соединений
@@ -29,7 +29,7 @@ func NewDBConnection() (*sql.DB, error) {
 
 	// Проверка подключения
 	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("error connecting to the database: %w", err)
+		return nil, fmt.Errorf("ошибка при подключении к базе данных: %w", err)
 	}
 
 	return db, nil

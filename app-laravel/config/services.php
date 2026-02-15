@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'grpc' => [
+        'go_sender' => [
+            'address' => env('GRPC_GO_SERVICE_ADDR', 'go-sender:50051'),
+        ],
+    ],
+
 ];

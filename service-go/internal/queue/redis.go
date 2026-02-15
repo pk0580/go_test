@@ -25,11 +25,11 @@ func NewRedisClient() (*RedisClient, error) {
 	})
 
 	// Проверка подключения
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3 * time.Second)
     defer cancel()
 
     if err := client.Ping(ctx).Err(); err != nil {
-        return nil, fmt.Errorf("redis unavailable: %w", err)
+        return nil, fmt.Errorf("Redis недоступен: %w", err)
     }
 
 	return &RedisClient{Client: client}, nil

@@ -50,10 +50,10 @@ func (s *SMTPSender) Send(recipient, content string) error {
 	// Использование smtp.SendMail для простоты
 	err := smtp.SendMail(addr, nil, from, to, msg)
 	if err != nil {
-		return fmt.Errorf("failed to send email: %w", err)
+		return fmt.Errorf("ошибка при отправке email: %w", err)
 	}
 
-	log.Printf("Email successfully sent to %s via %s", recipient, addr)
+	log.Printf("Email успешно отправлен на %s через %s", recipient, addr)
 	return nil
 }
 
@@ -61,6 +61,6 @@ func (s *SMTPSender) Send(recipient, content string) error {
 type MockSender struct{}
 
 func (m *MockSender) Send(recipient, content string) error {
-	log.Printf("[MOCK] Sending message to %s: %s", recipient, content)
+	log.Printf("[MOCK] Отправка сообщения на %s: %s", recipient, content)
 	return nil
 }
