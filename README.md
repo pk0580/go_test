@@ -59,14 +59,29 @@
    ```bash
    docker-compose up -d
    ```
+3. Если не получилось установить pecl grpc  
+   - для WSL нужно сделать конфиг файл .wslconfig в домашней директории юзера (Users/{user}) 
+       с содержимым:
+       ```
+       [wsl2]
+       memory=8GB
+       processors=4
+       swap=8GB
+       localhostForwarding=true
 
-3. Установите зависимости Laravel (при первом запуске):
+      ```
+   - затем перезапустить WSL (```wsl --shutdown``` и ```wsl```)
+   - затем запустить:
+      ```bash
+         docker-compose exec app sh -c "pecl install --force grpc-1.70.0"
+      ```
+4. Установите зависимости Laravel (при первом запуске):
    ```bash
    docker-compose exec app composer install
    docker-compose exec app php artisan migrate
    ```
-
-4. Команда для входа в контейнер приложения:
+   
+5. Команда для входа в контейнер приложения:
    ```bash
    docker-compose exec app sh
    ```
