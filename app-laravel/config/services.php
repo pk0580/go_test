@@ -41,4 +41,8 @@ return [
         ],
     ],
 
+    'sender' => [
+        'mode' => env('SEND_MODE', 'redis'), // Доступные режимы: redis, grpc
+    ],
+
 ];

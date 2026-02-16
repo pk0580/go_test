@@ -3,12 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Models\Message;
+use App\Services\GrpcClientService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Redis;
 
 class MessageController extends Controller
 {
+    public function __construct(
+        private readonly GrpcClientService $grpcService
+    ) {}
+
     /**
      * Показать список сообщений.
      */
@@ -23,7 +29,7 @@ class MessageController extends Controller
     }
 
     /**
-     * Создать сообщение и поместить его в очередь Redis.
+     * Создать сообщение и отправить его (через Redis или gRPC).
      */
     public function store(Request $request): JsonResponse
     {
@@ -32,6 +38,8 @@ class MessageController extends Controller
             'content' => 'required|string',
         ]);
 
+        $mode = Config::get('services.sender.mode', 'redis');
+
         // 1. Сохранение в БД
         $message = Message::create([
             'recipient' => $validated['recipient'],
@@ -39,8 +47,18 @@ class MessageController extends Controller
             'status' => 'pending',
         ]);
 
-        // 2. Постановка в очередь Redis
-        // Используем формат JSON, чтобы Go мог его легко распарсить
+        if ($mode === 'grpc') {
+            return $this->sendViaGrpc($message);
+        }
+
+        return $this->sendViaRedis($message);
+    }
+
+    /**
+     * Отправка через Redis (асинхронно).
+     */
+    private function sendViaRedis(Message $message): JsonResponse
+    {
         $payload = json_encode([
             'id' => $message->id,
             'recipient' => $message->recipient,
@@ -51,8 +69,46 @@ class MessageController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Сообщение поставлено в очередь',
+            'message' => 'Сообщение поставлено в очередь (Redis)',
             'data' => $message
         ], 201);
+    }
+
+    /**
+     * Отправка через gRPC (синхронно).
+     */
+    private function sendViaGrpc(Message $message): JsonResponse
+    {
+        try {
+            $response = $this->grpcService->sendEmail(
+                $message->recipient,
+                'Уведомление',
+                $message->content
+            );
+
+            if ($response->getSuccess()) {
+                $message->update(['status' => 'sent']);
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Сообщение успешно отправлено через gRPC',
+                    'data' => $message
+                ], 201);
+            }
+
+            $message->update(['status' => 'failed']);
+            return response()->json([
+                'success' => false,
+                'message' => 'Ошибка gRPC: ' . $response->getError(),
+                'data' => $message
+            ], 500);
+
+        } catch (\Exception $e) {
+            $message->update(['status' => 'failed']);
+            return response()->json([
+                'success' => false,
+                'message' => 'Исключение gRPC: ' . $e->getMessage(),
+                'data' => $message
+            ], 500);
+        }
     }
 }

@@ -78,6 +78,11 @@
     - Перегенерируй код для PHP и Go (команды обычно описаны в `README.md` или `Makefile`).
     - Обнови логику в `GrpcClientService.php` и `server.go`.
 
+4.  **Переключение режима отправки:**
+    В файле `.env` в корне `app-laravel` измените переменную `SEND_MODE`:
+    - `SEND_MODE=redis` (по умолчанию) — асинхронная отправка через очередь.
+    - `SEND_MODE=grpc` — синхронная отправка напрямую через gRPC.
+
 3.  **Логирование:**
     - Логи Laravel: `app-laravel/storage/logs/laravel.log`.
     - Логи Go: доступны через `docker compose logs service-go`.
