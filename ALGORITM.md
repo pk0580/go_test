@@ -39,18 +39,29 @@
 
 Используется, когда Laravel нужно немедленно узнать результат отправки или получить данные от Go-сервиса.
 
-#### Алгоритм:
-1.  **Laravel**: Вызывает метод `sendEmail` в классе `GrpcClientService`.
-2.  **Laravel**: gRPC клиент формирует запрос `EmailRequest` (описан в `.proto` файле) и отправляет его по TCP на порт Go-сервиса.
-3.  **Go-сервер**: Принимает запрос в методе `SendEmail`, вызывает `SMTPSender`.
-4.  **Go-сервер**: Возвращает `EmailResponse` с результатом (`success: true/false`).
-5.  **Laravel**: Получает ответ и может сразу вывести результат пользователю или лог.
+#### Детальный путь данных (Laravel -> gRPC):
+1.  **Контроллер**: `MessageController@sendViaGrpc` получает модель `Message`.
+2.  **Сервис-обертка**: Вызывается `GrpcClientService@sendEmail($to, $subject, $body)`.
+3.  **Формирование DTO**: Создается объект `App\Grpc\Sender\EmailRequest`, в который сеттерами устанавливаются данные.
+4.  **gRPC Клиент**: Вызывается метод `SendEmail` в `App\Grpc\SenderServiceClient` (наследует `Grpc\BaseStub`).
+5.  **Низкоуровневый вызов**: Метод `_simpleRequest` сериализует Protobuf-сообщение и отправляет HTTP/2 запрос на адрес `go-sender:50051`.
+6.  **Ожидание**: Laravel блокируется на вызове `wait()`, ожидая ответа от Go.
+
+#### Обработка на стороне Go (gRPC -> SMTP):
+1.  **gRPC Сервер**: Входящий запрос попадает в метод `SendEmail` структуры `Server` (файл `internal/grpcserver/server.go`).
+2.  **Валидация и Логирование**: Go извлекает данные из `pb.EmailRequest` и фиксирует начало обработки.
+3.  **Интерфейс Sender**: Вызывается метод `Send(recipient, body)` у интерфейса `EmailSender`.
+4.  **SMTP реализация**: Класс `SMTPSender` (файл `internal/sender/sender.go`) формирует заголовки письма (`To`, `Subject`) и тело сообщения.
+5.  **Физическая отправка**: Используется стандартная библиотека `net/smtp`. Метод `smtp.SendMail` устанавливает TCP-соединение с Mailpit (`mailpit:1025`) и передает данные по протоколу SMTP.
+6.  **Метрики**: Go фиксирует время обработки и увеличивает счетчик `go_sender_messages_processed_total` с меткой `grpc_sent` или `grpc_failed`.
+7.  **Ответ**: Формируется `pb.EmailResponse` с ID сообщения или текстом ошибки и возвращается клиенту.
 
 #### Ключевые файлы:
 *   `proto/sender.proto`: Определение контракта gRPC.
 *   `app-laravel/app/Services/GrpcClientService.php`: Обертка над gRPC клиентом для Laravel.
 *   `app-laravel/app/Grpc/SenderServiceClient.php`: Сгенерированный gRPC клиент.
 *   `service-go/internal/grpcserver/server.go`: Реализация gRPC сервера на Go.
+*   `service-go/internal/sender/sender.go`: Реализация SMTP клиента.
 
 ---
 

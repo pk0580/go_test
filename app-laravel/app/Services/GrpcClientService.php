@@ -11,6 +11,7 @@ use Grpc\ChannelCredentials;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
+use const Grpc\STATUS_OK;
 
 /**
  * Сервис для взаимодействия с Go-сервисом через gRPC.
@@ -57,7 +58,7 @@ class GrpcClientService
         $call = $this->client->SendEmail($request)->wait();
         [$response, $status] = $call;
 
-        if ($status->code !== 0) { // 0 - это \Grpc\STATUS_OK
+        if ($status->code !== STATUS_OK) {
             Log::error('gRPC SendEmail failed', [
                 'code' => $status->code,
                 'details' => $status->details,
@@ -82,7 +83,7 @@ class GrpcClientService
         $call = $this->client->GetWorkerStatus($request)->wait();
         [$response, $status] = $call;
 
-        if ($status->code !== 0) { // 0 - это \Grpc\STATUS_OK
+        if ($status->code !== STATUS_OK) {
             Log::error('gRPC GetWorkerStatus failed', [
                 'code' => $status->code,
                 'details' => $status->details,
