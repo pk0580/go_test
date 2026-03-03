@@ -47,11 +47,9 @@ class MessageController extends Controller
             'status' => 'pending',
         ]);
 
-        if ($mode === 'grpc') {
-            return $this->sendViaGrpc($message);
-        }
-
-        return $this->sendViaRedis($message);
+        return $mode === 'grpc'
+            ? $this->sendViaGrpc($message)
+            : $this->sendViaRedis($message);
     }
 
     /**
